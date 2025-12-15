@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 
-# Inicjalizacja listy towarów w stanie sesji Streamlit.
-# Stan sesji (st.session_state) jest kluczowy w Streamlit,
-# ponieważ przechowuje dane między ponownymi uruchomieniami aplikacji
-# i odświeżeniami strony, co jest niezbędne dla 'magazynu'.
+# Inicjalizacja listy towarów i zmiennych stanu
 if 'towary' not in st.session_state:
     st.session_state.towary = []
+    
+if 'usunieto' not in st.session_state:
+    st.session_state.usunieto = ""
 
 def dodaj_towar(nazwa):
     """Dodaje nowy towar do magazynu."""
@@ -18,13 +18,24 @@ def dodaj_towar(nazwa):
     else:
         st.error("Wprowadź nazwę towaru.")
 
-def usun_towar(nazwa):
-    """Usuwa towar z magazynu."""
+def usun_towar_callback():
+    """Usuwa towar z magazynu i aktualizuje stan.
+    Ta funkcja jest wywoływana jako callback przycisku."""
+    
+    # st.session_state.select_usun pobiera wartość z pola st.selectbox z kluczem 'select_usun'
+    towar_do_usunięcia = st.session_state.select_usun 
+    
     try:
-        st.session_state.towary.remove(nazwa)
-        st.info(f"Usunięto: **{nazwa}**")
+        if towar_do_usunięcia:
+            # Usuwamy towar z głównej listy
+            st.session_state.towary.remove(towar_do_usunięcia)
+            # Ustawiamy komunikat o sukcesie w stanie sesji, aby wyświetlić go po ponownym uruchomieniu
+            st.session_state.usunieto = f"Usunięto: **{towar_do_usunięcia}**"
+        else:
+            st.session_state.usunieto = "Nie wybrano towaru do usunięcia."
     except ValueError:
-        st.error(f"Błąd: Towar **{nazwa}** nie został znaleziony.")
+        st.session_state.usunieto = f"Błąd: Towar **{towar_do_usunięcia}** nie został znaleziony."
+
 
 # --- Interfejs użytkownika Streamlit ---
 
@@ -33,8 +44,7 @@ st.markdown("Aplikacja wykorzystuje listę Pythona do przechowywania danych (bez
 
 ## Sekcja Dodawania Towaru
 st.header("➕ Dodaj Nowy Towar")
-# Używamy st.form, aby zgrupować widgety i umożliwić ich jednoczesne przetworzenie
-# po naciśnięciu przycisku 'Submit', co zapobiega ciągłemu odświeżaniu.
+
 with st.form("dodaj_formularz", clear_on_submit=True):
     nowy_towar = st.text_input("Nazwa Towaru", key="input_dodaj")
     submit_dodaj = st.form_submit_button("Dodaj do Magazynu")
@@ -46,7 +56,7 @@ with st.form("dodaj_formularz", clear_on_submit=True):
 st.header("📊 Stan Magazynu")
 
 if st.session_state.towary:
-    # Tworzenie DataFrame z listy dla lepszej wizualizacji w Streamlit
+    # Tworzenie DataFrame z listy dla lepszej wizualizacji
     df_magazyn = pd.DataFrame(st.session_state.towary, columns=['Nazwa Towaru'])
     df_magazyn.index += 1 # Numeracja od 1
     st.table(df_magazyn)
@@ -57,19 +67,25 @@ else:
 ## Sekcja Usuwania Towaru
 st.header("➖ Usuń Towar")
 
+# Wyświetlamy komunikat z callbacka usunięcia (jeśli istnieje)
+if st.session_state.usunieto:
+    st.info(st.session_state.usunieto)
+    # Czyścimy komunikat, aby nie wyświetlał się ciągle
+    st.session_state.usunieto = "" 
+
 if st.session_state.towary:
     # Wykorzystanie st.selectbox dla wyboru towaru do usunięcia
-    # Opcje są generowane dynamicznie z bieżącej listy towarów
     towar_do_usunięcia = st.selectbox(
         "Wybierz towar do usunięcia",
         st.session_state.towary,
-        key="select_usun"
+        key="select_usun" # Klucz jest niezbędny, aby callback mógł odczytać wartość
     )
 
-    if st.button("Usuń Wybrany Towar"):
-        usun_towar(towar_do_usunięcia)
-        # Musimy wymusić ponowne uruchomienie, aby Streamlit odświeżył selectbox po usunięciu
-        st.experimental_rerun()
+    # Użycie callbacku on_click, który automatycznie odświeża stan aplikacji
+    st.button(
+        "Usuń Wybrany Towar",
+        on_click=usun_towar_callback
+    )
 else:
     st.info("Nie ma towarów do usunięcia.")
 
