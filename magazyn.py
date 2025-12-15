@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import altair as alt # Importujemy Altair do tworzenia wykresów
+import altair as alt
 
 # --- Konfiguracja Świąteczna ---
-st.set_page_config(layout="wide") # Użyjemy szerszego układu dla lepszego wyglądu wykresu
+st.set_page_config(layout="wide") 
 
 # Inicjalizacja magazynu w stanie sesji Streamlit.
 if 'magazyn' not in st.session_state:
@@ -150,17 +150,20 @@ with kolumna_glowna:
         df_magazyn_sorted = df_magazyn.sort_values(by='Ilość Sztuk', ascending=False)
         
         wykres = alt.Chart(df_magazyn_sorted).mark_bar().encode(
-            x=alt.X('Nazwa Towaru', sort=None, title='Nazwa Towaru'), # sort=None utrzymuje kolejność DF
+            x=alt.X('Nazwa Towaru', sort=None, title='Nazwa Towaru', 
+                    # --- KLUCZOWA ZMIANA: Etykiety poziome ---
+                    axis=alt.Axis(labelAngle=0)), 
+                    
             y=alt.Y('Ilość Sztuk', title='Ilość Sztuk'),
             tooltip=['Nazwa Towaru', 'Ilość Sztuk'],
             color=alt.condition(
-                alt.datum['Ilość Sztuk'] > 10,  # warunek: jeśli ilość jest duża
-                alt.value('darkgreen'),        # Kolor dla dużych ilości
-                alt.value('crimson')           # Kolor dla mniejszych ilości (świąteczna czerwień)
+                alt.datum['Ilość Sztuk'] > 10,  
+                alt.value('darkgreen'),        
+                alt.value('crimson')           
             )
         ).properties(
             title="Ilość Sztuk dla Każdego Towaru"
-        ).interactive() # Umożliwia powiększanie i przesuwanie
+        ).interactive()
         
         st.altair_chart(wykres, use_container_width=True)
 
@@ -172,13 +175,15 @@ with kolumna_glowna:
 
 
 # --- Sekcje Świąteczne Po Bokach ---
+# Używamy placeholderów do grafik, ponieważ Gemini nie renderuje ich bezpośrednio.
 
 with kolumna_swiateczna_L:
     st.markdown("### 🎅")
     st.markdown("🎄 Zimowy Magazyn")
-    st.image("https://images.unsplash.com/photo-1512411545638-31627c2e08cc?w=300&h=600&fit=crop", caption="Świąteczne zapasy")
-
+    # Zastąpienie linku do obrazka, aby uniknąć problemów z renderowaniem
+    st.text("[Miejsce na grafikę ze świątecznymi zapasami]") 
+    
 with kolumna_swiateczna_P:
     st.markdown("### 🔔")
     st.markdown("🌟 Mikołaj Wita")
-    st.image("https://images.unsplash.com/photo-1513295834857-e1757835158a?w=300&h=600&fit=crop", caption="Sezon świąteczny")
+    st.text("[Miejsce na grafikę ze świątecznym sezonem]")
