@@ -3,7 +3,8 @@ import pandas as pd
 import altair as alt
 from datetime import datetime
 
-# --- Konfiguracja Świąteczna ---
+# --- Konfiguracja Streamlit ---
+# Ustawiamy szeroki układ strony
 st.set_page_config(layout="wide") 
 
 # Inicjalizacja magazynu w stanie sesji Streamlit.
@@ -13,13 +14,13 @@ if 'magazyn' not in st.session_state:
 if 'komunikat_usun' not in st.session_state:
     st.session_state.komunikat_usun = ""
 
-# --- NOWA ZMIENNA STANU: HISTORIA OPERACJI ---
+# Lista do przechowywania historii operacji
 if 'historia_operacji' not in st.session_state:
     st.session_state.historia_operacji = []
 
 
 def dodaj_do_historii(typ, nazwa, ilosc, nowa_ilosc):
-    """Dodaje wpis do historii operacji."""
+    """Dodaje wpis do historii operacji (logu)."""
     st.session_state.historia_operacji.append({
         'czas': datetime.now().strftime("%H:%M:%S"),
         'typ': typ,
@@ -29,16 +30,15 @@ def dodaj_do_historii(typ, nazwa, ilosc, nowa_ilosc):
     })
 
 
-# --- Funkcje Logiki ---
+# --- Funkcje Logiki Magazynu ---
 
 def dodaj_sztuke(nazwa, ilosc_do_dodania):
-    """Dodaje określoną liczbę sztuk do danego towaru."""
+    """Dodaje określoną liczbę sztuk do danego towaru i rejestruje operację."""
     if not nazwa:
         st.error("Wprowadź nazwę towaru.")
         return
 
     ilosc_do_dodania = int(ilosc_do_dodania)
-    poprzednia_ilosc = st.session_state.magazyn.get(nazwa, 0)
     
     if nazwa in st.session_state.magazyn:
         st.session_state.magazyn[nazwa] += ilosc_do_dodania
@@ -47,7 +47,7 @@ def dodaj_sztuke(nazwa, ilosc_do_dodania):
         st.session_state.magazyn[nazwa] = ilosc_do_dodania
         st.success(f"Dodano nowy towar: **{nazwa}** (ilość: {ilosc_do_dodania}).")
 
-    # Dodanie do historii
+    # Rejestracja w historii
     dodaj_do_historii(
         typ="DODANO", 
         nazwa=nazwa, 
@@ -57,7 +57,7 @@ def dodaj_sztuke(nazwa, ilosc_do_dodania):
 
 
 def usun_sztuke_callback():
-    """Zmniejsza ilość sztuk wybranego towaru o wybraną wartość."""
+    """Zmniejsza ilość sztuk wybranego towaru o wybraną wartość i rejestruje operację."""
     
     nazwa_do_edycji = st.session_state.select_usun
     ilosc_do_usunięcia = int(st.session_state.ilosc_usun)
@@ -76,7 +76,7 @@ def usun_sztuke_callback():
         st.session_state.magazyn[nazwa_do_edycji] -= ilosc_do_usunięcia
         ilosc_po_usunieciu = st.session_state.magazyn[nazwa_do_edycji]
         
-        # Dodanie do historii PRZED usunięciem wpisu z magazynu (jeśli ilość == 0)
+        # Rejestracja w historii przed ewentualnym usunięciem wpisu
         dodaj_do_historii(
             typ="USUNIĘTO", 
             nazwa=nazwa_do_edycji, 
@@ -91,7 +91,7 @@ def usun_sztuke_callback():
             st.session_state.komunikat_usun = f"Usunięto {ilosc_do_usunięcia} sztuk (**{nazwa_do_edycji}**). Pozostało: **{ilosc_po_usunieciu}**."
 
 
-# --- Interfejs użytkownika Streamlit (Świąteczny Układ z Historią) ---
+# --- Interfejs użytkownika Streamlit (Układ z kolumnami) ---
 
 # Użycie kolumn: [Świąteczna L | Główna (4) | Historia (1.5)]
 kolumna_swiateczna_L, kolumna_glowna, kolumna_historia_P = st.columns([1, 4, 1.5])
@@ -122,7 +122,6 @@ with kolumna_glowna:
     ## 2. Sekcja Usuwania Towaru
     st.header("➖ Usuń Towar (Zwrot/Wydanie - 1 do 5 sztuk)")
 
-    # Wyświetlamy komunikat i czyścimy go
     if st.session_state.komunikat_usun:
         st.info(st.session_state.komunikat_usun)
         st.session_state.pop('komunikat_usun')
@@ -168,7 +167,6 @@ with kolumna_glowna:
         df_magazyn = pd.DataFrame(towary_data)
         df_magazyn.index += 1
         
-        # Wskaźniki obok siebie
         col_metr1, col_metr2 = st.columns(2)
         with col_metr1:
             st.metric(label="Liczba Różnych Towarów 🎁", value=len(st.session_state.magazyn))
@@ -185,7 +183,7 @@ with kolumna_glowna:
         
         wykres = alt.Chart(df_magazyn_sorted).mark_bar().encode(
             x=alt.X('Nazwa Towaru', sort=None, title='Nazwa Towaru', 
-                    axis=alt.Axis(labelAngle=0)), 
+                    axis=alt.Axis(labelAngle=0)), # Etykiety na osi X są poziome
             y=alt.Y('Ilość Sztuk', title='Ilość Sztuk'),
             tooltip=['Nazwa Towaru', 'Ilość Sztuk'],
             color=alt.condition(
@@ -206,11 +204,12 @@ with kolumna_glowna:
     st.caption("Dane przechowywane w słowniku Pythona w pamięci aplikacji Streamlit.")
 
 
-# --- Sekcje Świąteczne Po Bokach ---
+# --- Sekcje Boczne ---
 
 with kolumna_swiateczna_L:
     st.markdown("### 🎅")
     st.markdown("🎄 Zimowy Magazyn")
+    # Pamiętaj, aby zastąpić ten tekst linkiem do obrazka w swoim wdrożeniu Streamlit!
     st.text("[Miejsce na grafikę ze świątecznymi zapasami]") 
 
 # --- Prawa Kolumna: Historia Operacji ---
@@ -220,10 +219,10 @@ with kolumna_historia_P:
     st.markdown("---")
 
     if st.session_state.historia_operacji:
-        # Odwracamy listę, aby najnowsze operacje były na górze
         historia_df = pd.DataFrame(st.session_state.historia_operacji)
         
-        for index, row in historia_df.iloc[::-1].iterrows(): # Iteracja od końca (najnowsze)
+        # Iterujemy od końca (iloc[::-1]), aby najnowsze były na górze
+        for index, row in historia_df.iloc[::-1].iterrows():
             if row['typ'] == 'DODANO':
                 ikonka = '⬆️'
                 kolor = 'green'
@@ -234,7 +233,8 @@ with kolumna_historia_P:
             st.markdown(f"**{ikonka} {row['czas']}**", unsafe_allow_html=True)
             st.markdown(f"**{row['typ']}**: `{row['towar']}` ({row['ilosc']} szt.)")
             st.markdown(f"<span style='color:{kolor}; font-size:12px;'>{row['status']}</span>", unsafe_allow_html=True)
-            st.markdown("---", anchor=False)
+            # Poprawione wywołanie st.markdown, które poprzednio generowało błąd
+            st.markdown("---") 
     else:
         st.info("Brak zarejestrowanych operacji.")
     
