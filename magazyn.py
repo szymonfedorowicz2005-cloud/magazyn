@@ -1,93 +1,117 @@
 import streamlit as st
 import pandas as pd
 
-# Inicjalizacja listy towarów i zmiennych stanu
-if 'towary' not in st.session_state:
-    st.session_state.towary = []
-    
-if 'usunieto' not in st.session_state:
-    st.session_state.usunieto = ""
+# Inicjalizacja magazynu w stanie sesji Streamlit.
+# Magazyn jest teraz słownikiem (dictionary):
+# {'Nazwa Towaru': Liczba_Sztuk}
+if 'magazyn' not in st.session_state:
+    st.session_state.magazyn = {}
 
-def dodaj_towar(nazwa):
-    """Dodaje nowy towar do magazynu."""
-    if nazwa and nazwa not in st.session_state.towary:
-        st.session_state.towary.append(nazwa)
-        st.success(f"Dodano: **{nazwa}**")
-    elif nazwa in st.session_state.towary:
-        st.warning(f"Towar **{nazwa}** już znajduje się w magazynie.")
-    else:
+def dodaj_sztuke(nazwa):
+    """Dodaje 1 sztukę do danego towaru w magazynie."""
+    if not nazwa:
         st.error("Wprowadź nazwę towaru.")
+        return
 
-def usun_towar_callback():
-    """Usuwa towar z magazynu i aktualizuje stan.
-    Ta funkcja jest wywoływana jako callback przycisku."""
+    # Jeśli towar istnieje, zwiększamy ilość o 1
+    if nazwa in st.session_state.magazyn:
+        st.session_state.magazyn[nazwa] += 1
+        st.success(f"Dodano kolejną sztukę (**{nazwa}**). Aktualna ilość: **{st.session_state.magazyn[nazwa]}**.")
+    # Jeśli towar jest nowy, dodajemy go z ilością 1
+    else:
+        st.session_state.magazyn[nazwa] = 1
+        st.success(f"Dodano nowy towar: **{nazwa}** (ilość: 1).")
+
+def usun_sztuke_callback():
+    """Zmniejsza ilość sztuk wybranego towaru o 1 lub usuwa go, jeśli osiągnie 0."""
     
-    # st.session_state.select_usun pobiera wartość z pola st.selectbox z kluczem 'select_usun'
-    towar_do_usunięcia = st.session_state.select_usun 
+    # Pobieramy nazwę z pola selectbox za pomocą klucza 'select_usun'
+    nazwa_do_edycji = st.session_state.select_usun 
     
-    try:
-        if towar_do_usunięcia:
-            # Usuwamy towar z głównej listy
-            st.session_state.towary.remove(towar_do_usunięcia)
-            # Ustawiamy komunikat o sukcesie w stanie sesji, aby wyświetlić go po ponownym uruchomieniu
-            st.session_state.usunieto = f"Usunięto: **{towar_do_usunięcia}**"
-        else:
-            st.session_state.usunieto = "Nie wybrano towaru do usunięcia."
-    except ValueError:
-        st.session_state.usunieto = f"Błąd: Towar **{towar_do_usunięcia}** nie został znaleziony."
+    if not nazwa_do_edycji:
+        st.error("Nie wybrano towaru do edycji.")
+        return
+
+    ilosc = st.session_state.magazyn.get(nazwa_do_edycji, 0)
+    
+    if ilosc > 1:
+        # Zmniejszamy ilość o 1
+        st.session_state.magazyn[nazwa_do_edycji] -= 1
+        st.session_state.komunikat_usun = f"Usunięto 1 sztukę (**{nazwa_do_edycji}**). Pozostało: **{st.session_state.magazyn[nazwa_do_edycji]}**."
+    elif ilosc == 1:
+        # Usuwamy wpis, jeśli pozostała 1 sztuka
+        del st.session_state.magazyn[nazwa_do_edycji]
+        st.session_state.komunikat_usun = f"Usunięto ostatnią sztukę (**{nazwa_do_edycji}**). Towar usunięty z magazynu."
+    else:
+        # Ten warunek nie powinien wystąpić, jeśli selectbox jest poprawny
+        st.session_state.komunikat_usun = f"Błąd: Towar **{nazwa_do_edycji}** nie jest już w magazynie."
 
 
 # --- Interfejs użytkownika Streamlit ---
 
-st.title("📦 Prosty Magazyn Towarów")
-st.markdown("Aplikacja wykorzystuje listę Pythona do przechowywania danych (bez zapisu do pliku).")
+st.title("📦 Prosty Magazyn Towarów z Ilością Sztuk")
+st.markdown("Aplikacja wykorzystuje słownik Pythona do śledzenia ilości sztuk dla każdego towaru.")
 
-## Sekcja Dodawania Towaru
-st.header("➕ Dodaj Nowy Towar")
+## Sekcja Dodawania Towaru (Dodaj 1 sztukę)
+st.header("➕ Dodaj 1 Sztukę Towaru")
 
 with st.form("dodaj_formularz", clear_on_submit=True):
-    nowy_towar = st.text_input("Nazwa Towaru", key="input_dodaj")
-    submit_dodaj = st.form_submit_button("Dodaj do Magazynu")
+    nowy_towar = st.text_input("Nazwa Towaru (wprowadź lub powtórz nazwę istniejącego)", key="input_dodaj")
+    submit_dodaj = st.form_submit_button("Dodaj 1 Sztukę")
 
     if submit_dodaj:
-        dodaj_towar(nowy_towar)
+        # Używamy st.form_submit_button, więc wywołanie funkcji musi być w tym bloku
+        dodaj_sztuke(nowy_towar)
 
 ## Sekcja Bieżącego Stanu Magazynu
 st.header("📊 Stan Magazynu")
 
-if st.session_state.towary:
-    # Tworzenie DataFrame z listy dla lepszej wizualizacji
-    df_magazyn = pd.DataFrame(st.session_state.towary, columns=['Nazwa Towaru'])
+if st.session_state.magazyn:
+    # Konwersja słownika na DataFrame dla ładnej tabeli
+    towary_data = {
+        'Nazwa Towaru': list(st.session_state.magazyn.keys()),
+        'Ilość Sztuk': list(st.session_state.magazyn.values())
+    }
+    df_magazyn = pd.DataFrame(towary_data)
     df_magazyn.index += 1 # Numeracja od 1
+    
+    # Wyświetlamy tabelę
     st.table(df_magazyn)
-    st.metric(label="Liczba Różnych Towarów", value=len(st.session_state.towary))
+    
+    # Dodatkowe wskaźniki
+    st.metric(label="Liczba Różnych Towarów", value=len(st.session_state.magazyn))
+    st.metric(label="Całkowita Ilość Sztuk w Magazynie", value=sum(st.session_state.magazyn.values()))
+    
 else:
     st.info("Magazyn jest pusty. Dodaj pierwszy towar!")
 
-## Sekcja Usuwania Towaru
-st.header("➖ Usuń Towar")
 
-# Wyświetlamy komunikat z callbacka usunięcia (jeśli istnieje)
-if st.session_state.usunieto:
-    st.info(st.session_state.usunieto)
-    # Czyścimy komunikat, aby nie wyświetlał się ciągle
-    st.session_state.usunieto = "" 
+## Sekcja Usuwania Towaru (Usuń 1 sztukę)
+st.header("➖ Usuń 1 Sztukę Towaru")
 
-if st.session_state.towary:
-    # Wykorzystanie st.selectbox dla wyboru towaru do usunięcia
+# Wyświetlamy komunikat z callbacka usunięcia (jeśli istnieje) i czyścimy go
+if 'komunikat_usun' in st.session_state and st.session_state.komunikat_usun:
+    st.info(st.session_state.komunikat_usun)
+    st.session_state.pop('komunikat_usun')
+
+
+if st.session_state.magazyn:
+    # Używamy list(st.session_state.magazyn.keys()) jako opcji dla selectboxa
+    towary_dostepne = list(st.session_state.magazyn.keys())
+    
     towar_do_usunięcia = st.selectbox(
-        "Wybierz towar do usunięcia",
-        st.session_state.towary,
-        key="select_usun" # Klucz jest niezbędny, aby callback mógł odczytać wartość
+        "Wybierz towar, z którego chcesz usunąć 1 sztukę",
+        towary_dostepne,
+        key="select_usun" # Klucz jest niezbędny dla callbacka
     )
 
     # Użycie callbacku on_click, który automatycznie odświeża stan aplikacji
     st.button(
-        "Usuń Wybrany Towar",
-        on_click=usun_towar_callback
+        "Usuń 1 Sztukę Wybranego Towaru",
+        on_click=usun_sztuke_callback
     )
 else:
     st.info("Nie ma towarów do usunięcia.")
 
 st.markdown("---")
-st.caption("Aplikacja magazynu w Streamlit, dane przechowywane w pamięci (lista).")
+st.caption("Dane przechowywane w słowniku Pythona w pamięci aplikacji Streamlit.")
