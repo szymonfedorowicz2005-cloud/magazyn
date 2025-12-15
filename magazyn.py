@@ -16,22 +16,18 @@ def dodaj_sztuke(nazwa, ilosc_do_dodania):
         st.error("Wprowadź nazwę towaru.")
         return
 
-    # Upewniamy się, że ilość do dodania jest dodatnia
     ilosc_do_dodania = int(ilosc_do_dodania)
     
     if nazwa in st.session_state.magazyn:
-        # Towar istnieje: zwiększamy ilość
         st.session_state.magazyn[nazwa] += ilosc_do_dodania
         st.success(f"Dodano {ilosc_do_dodania} sztuk (**{nazwa}**). Aktualna ilość: **{st.session_state.magazyn[nazwa]}**.")
     else:
-        # Nowy towar: dodajemy go z podaną ilością
         st.session_state.magazyn[nazwa] = ilosc_do_dodania
         st.success(f"Dodano nowy towar: **{nazwa}** (ilość: {ilosc_do_dodania}).")
 
 def usun_sztuke_callback():
     """Zmniejsza ilość sztuk wybranego towaru o wybraną wartość."""
     
-    # Pobieramy nazwę i ilość z pól formularza za pomocą kluczy
     nazwa_do_edycji = st.session_state.select_usun # Nazwa z selectboxa towarów
     ilosc_do_usunięcia = int(st.session_state.ilosc_usun) # Ilość z selectboxa ilości
     
@@ -42,7 +38,6 @@ def usun_sztuke_callback():
     ilosc_obecna = st.session_state.magazyn.get(nazwa_do_edycji, 0)
     
     if ilosc_obecna == 0:
-        # Powinno być niemożliwe, jeśli selectbox jest poprawny
         st.session_state.komunikat_usun = f"Błąd: Towar **{nazwa_do_edycji}** nie jest już w magazynie."
     elif ilosc_do_usunięcia > ilosc_obecna:
         st.session_state.komunikat_usun = f"Błąd: Nie można usunąć {ilosc_do_usunięcia} sztuk, ponieważ dostępnych jest tylko {ilosc_obecna}."
@@ -59,12 +54,12 @@ def usun_sztuke_callback():
             st.session_state.komunikat_usun = f"Usunięto {ilosc_do_usunięcia} sztuk (**{nazwa_do_edycji}**). Pozostało: **{ilosc_po_usunieciu}**."
 
 
-# --- Interfejs użytkownika Streamlit ---
+# --- Interfejs użytkownika Streamlit (Zmieniona Kolejność) ---
 
 st.title("📦 Magazyn Towarów z Wyborem Ilości")
-st.markdown("Możesz dodać/usunąć od 1 do 5 sztuk w jednej operacji. Dane przechowywane w słowniku.")
+st.markdown("Możesz dodać/usunąć od 1 do 5 sztuk w jednej operacji.")
 
-## Sekcja Dodawania Towaru
+## 1. Sekcja Dodawania Towaru
 st.header("➕ Dodaj Towar (1-5 sztuk)")
 
 with st.form("dodaj_formularz", clear_on_submit=True):
@@ -79,30 +74,12 @@ with st.form("dodaj_formularz", clear_on_submit=True):
     submit_dodaj = st.form_submit_button("Dodaj do Magazynu")
 
     if submit_dodaj:
-        # Wywołujemy funkcję z dwoma argumentami
         dodaj_sztuke(nowy_towar, ilosc_dodaj)
 
-## Sekcja Bieżącego Stanu Magazynu
-st.header("📊 Stan Magazynu")
+st.markdown("---")
 
-if st.session_state.magazyn:
-    # Konwersja słownika na DataFrame
-    towary_data = {
-        'Nazwa Towaru': list(st.session_state.magazyn.keys()),
-        'Ilość Sztuk': list(st.session_state.magazyn.values())
-    }
-    df_magazyn = pd.DataFrame(towary_data)
-    df_magazyn.index += 1
-    
-    st.table(df_magazyn)
-    
-    st.metric(label="Liczba Różnych Towarów", value=len(st.session_state.magazyn))
-    st.metric(label="Całkowita Ilość Sztuk w Magazynie", value=sum(st.session_state.magazyn.values()))
-    
-else:
-    st.info("Magazyn jest pusty. Dodaj pierwszy towar!")
 
-## Sekcja Usuwania Towaru
+## 2. Sekcja Usuwania Towaru
 st.header("➖ Usuń Towar (1-5 sztuk)")
 
 # Wyświetlamy komunikat i czyścimy go
@@ -124,7 +101,6 @@ if st.session_state.magazyn:
         )
     
     with col4:
-         # Selectbox dla wyboru ilości do usunięcia
         ilosc_usun = st.selectbox(
             "Ilość",
             options=list(range(1, 6)),
@@ -132,13 +108,35 @@ if st.session_state.magazyn:
             key="ilosc_usun" # Klucz dla callbacka
         )
     
-    # Użycie callbacku on_click
     st.button(
         "Usuń Wybraną Ilość Sztuk",
         on_click=usun_sztuke_callback
     )
 else:
     st.info("Nie ma towarów do usunięcia.")
+
+st.markdown("---")
+
+## 3. Sekcja Bieżącego Stanu Magazynu (na samym dole)
+st.header("📊 Stan Magazynu")
+
+if st.session_state.magazyn:
+    # Konwersja słownika na DataFrame
+    towary_data = {
+        'Nazwa Towaru': list(st.session_state.magazyn.keys()),
+        'Ilość Sztuk': list(st.session_state.magazyn.values())
+    }
+    df_magazyn = pd.DataFrame(towary_data)
+    df_magazyn.index += 1
+    
+    st.table(df_magazyn)
+    
+    # Wskaźniki
+    st.metric(label="Liczba Różnych Towarów", value=len(st.session_state.magazyn))
+    st.metric(label="Całkowita Ilość Sztuk w Magazynie", value=sum(st.session_state.magazyn.values()))
+    
+else:
+    st.info("Magazyn jest pusty. Dodaj pierwszy towar!")
 
 st.markdown("---")
 st.caption("Dane przechowywane w słowniku Pythona w pamięci aplikacji Streamlit.")
