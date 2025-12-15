@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+from datetime import datetime
 
 # --- Konfiguracja Świąteczna ---
 st.set_page_config(layout="wide") 
@@ -12,6 +13,22 @@ if 'magazyn' not in st.session_state:
 if 'komunikat_usun' not in st.session_state:
     st.session_state.komunikat_usun = ""
 
+# --- NOWA ZMIENNA STANU: HISTORIA OPERACJI ---
+if 'historia_operacji' not in st.session_state:
+    st.session_state.historia_operacji = []
+
+
+def dodaj_do_historii(typ, nazwa, ilosc, nowa_ilosc):
+    """Dodaje wpis do historii operacji."""
+    st.session_state.historia_operacji.append({
+        'czas': datetime.now().strftime("%H:%M:%S"),
+        'typ': typ,
+        'towar': nazwa,
+        'ilosc': ilosc,
+        'status': f"-> {nowa_ilosc} szt."
+    })
+
+
 # --- Funkcje Logiki ---
 
 def dodaj_sztuke(nazwa, ilosc_do_dodania):
@@ -21,6 +38,7 @@ def dodaj_sztuke(nazwa, ilosc_do_dodania):
         return
 
     ilosc_do_dodania = int(ilosc_do_dodania)
+    poprzednia_ilosc = st.session_state.magazyn.get(nazwa, 0)
     
     if nazwa in st.session_state.magazyn:
         st.session_state.magazyn[nazwa] += ilosc_do_dodania
@@ -28,6 +46,15 @@ def dodaj_sztuke(nazwa, ilosc_do_dodania):
     else:
         st.session_state.magazyn[nazwa] = ilosc_do_dodania
         st.success(f"Dodano nowy towar: **{nazwa}** (ilość: {ilosc_do_dodania}).")
+
+    # Dodanie do historii
+    dodaj_do_historii(
+        typ="DODANO", 
+        nazwa=nazwa, 
+        ilosc=ilosc_do_dodania, 
+        nowa_ilosc=st.session_state.magazyn[nazwa]
+    )
+
 
 def usun_sztuke_callback():
     """Zmniejsza ilość sztuk wybranego towaru o wybraną wartość."""
@@ -49,6 +76,14 @@ def usun_sztuke_callback():
         st.session_state.magazyn[nazwa_do_edycji] -= ilosc_do_usunięcia
         ilosc_po_usunieciu = st.session_state.magazyn[nazwa_do_edycji]
         
+        # Dodanie do historii PRZED usunięciem wpisu z magazynu (jeśli ilość == 0)
+        dodaj_do_historii(
+            typ="USUNIĘTO", 
+            nazwa=nazwa_do_edycji, 
+            ilosc=ilosc_do_usunięcia, 
+            nowa_ilosc=ilosc_po_usunieciu
+        )
+        
         if ilosc_po_usunieciu == 0:
             del st.session_state.magazyn[nazwa_do_edycji]
             st.session_state.komunikat_usun = f"Usunięto {ilosc_do_usunięcia} sztuk (**{nazwa_do_edycji}**). Towar usunięty z magazynu."
@@ -56,10 +91,10 @@ def usun_sztuke_callback():
             st.session_state.komunikat_usun = f"Usunięto {ilosc_do_usunięcia} sztuk (**{nazwa_do_edycji}**). Pozostało: **{ilosc_po_usunieciu}**."
 
 
-# --- Interfejs użytkownika Streamlit (Świąteczny Układ) ---
+# --- Interfejs użytkownika Streamlit (Świąteczny Układ z Historią) ---
 
-# Użycie kolumn do dodania świątecznej atmosfery po bokach
-kolumna_swiateczna_L, kolumna_glowna, kolumna_swiateczna_P = st.columns([1, 4, 1])
+# Użycie kolumn: [Świąteczna L | Główna (4) | Historia (1.5)]
+kolumna_swiateczna_L, kolumna_glowna, kolumna_historia_P = st.columns([1, 4, 1.5])
 
 with kolumna_glowna:
     st.title("🎁🎄 Świąteczny Magazyn Towarów 🎄🎁")
@@ -146,14 +181,11 @@ with kolumna_glowna:
         # --- WYKRES SŁUPKOWY ---
         st.subheader("Wizualizacja Ilości Towarów")
 
-        # Sortowanie danych przed wykresem dla lepszej czytelności
         df_magazyn_sorted = df_magazyn.sort_values(by='Ilość Sztuk', ascending=False)
         
         wykres = alt.Chart(df_magazyn_sorted).mark_bar().encode(
             x=alt.X('Nazwa Towaru', sort=None, title='Nazwa Towaru', 
-                    # --- KLUCZOWA ZMIANA: Etykiety poziome ---
                     axis=alt.Axis(labelAngle=0)), 
-                    
             y=alt.Y('Ilość Sztuk', title='Ilość Sztuk'),
             tooltip=['Nazwa Towaru', 'Ilość Sztuk'],
             color=alt.condition(
@@ -175,15 +207,35 @@ with kolumna_glowna:
 
 
 # --- Sekcje Świąteczne Po Bokach ---
-# Używamy placeholderów do grafik, ponieważ Gemini nie renderuje ich bezpośrednio.
 
 with kolumna_swiateczna_L:
     st.markdown("### 🎅")
     st.markdown("🎄 Zimowy Magazyn")
-    # Zastąpienie linku do obrazka, aby uniknąć problemów z renderowaniem
     st.text("[Miejsce na grafikę ze świątecznymi zapasami]") 
+
+# --- Prawa Kolumna: Historia Operacji ---
+
+with kolumna_historia_P:
+    st.markdown("### 🔔 Log Operacji 🔔")
+    st.markdown("---")
+
+    if st.session_state.historia_operacji:
+        # Odwracamy listę, aby najnowsze operacje były na górze
+        historia_df = pd.DataFrame(st.session_state.historia_operacji)
+        
+        for index, row in historia_df.iloc[::-1].iterrows(): # Iteracja od końca (najnowsze)
+            if row['typ'] == 'DODANO':
+                ikonka = '⬆️'
+                kolor = 'green'
+            else:
+                ikonka = '⬇️'
+                kolor = 'red'
+                
+            st.markdown(f"**{ikonka} {row['czas']}**", unsafe_allow_html=True)
+            st.markdown(f"**{row['typ']}**: `{row['towar']}` ({row['ilosc']} szt.)")
+            st.markdown(f"<span style='color:{kolor}; font-size:12px;'>{row['status']}</span>", unsafe_allow_html=True)
+            st.markdown("---", anchor=False)
+    else:
+        st.info("Brak zarejestrowanych operacji.")
     
-with kolumna_swiateczna_P:
-    st.markdown("### 🔔")
-    st.markdown("🌟 Mikołaj Wita")
     st.text("[Miejsce na grafikę ze świątecznym sezonem]")
