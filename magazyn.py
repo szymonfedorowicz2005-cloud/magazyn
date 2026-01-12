@@ -23,19 +23,16 @@ def pobierz_produkty():
     return res.data or []
 
 def pobierz_kategorie():
-    """
-    Pobiera TYLKO istniejące kategorie z Supabase.
-    Brak dodawania / usuwania.
-    """
+    # TYLKO ODCZYT – żadnego zapisu
     res = supabase.table("kategorie").select("nazwa").execute()
     return [k["nazwa"] for k in res.data] if res.data else []
 
-def dodaj_produkt(nazwa, ilosc, kategoria):
+def dodaj_produkt(nazwa, ilosc):
+    # INSERT tylko do kolumn, które NA 100% istnieją
     supabase.table("produkty").insert(
         {
             "nazwa": nazwa,
-            "ilosc": ilosc,
-            "kategoria": kategoria
+            "ilosc": ilosc
         }
     ).execute()
 
@@ -53,21 +50,22 @@ st.markdown("---")
 # =============================
 st.subheader("➕ Dodaj produkt")
 
-kategorie = pobierz_kategorie()
+kategorie = pobierz_kategorie()  # tylko do wyświetlenia
 
 with st.form("formularz_dodaj"):
     nazwa = st.text_input("Nazwa produktu")
     ilosc = st.number_input("Ilość", min_value=1, step=1)
 
+    # kategoria TYLKO informacyjnie
     if kategorie:
-        kategoria = st.selectbox("Kategoria", kategorie)
+        st.selectbox("Kategoria (tylko informacyjnie)", kategorie)
     else:
-        kategoria = ""
+        st.info("Brak kategorii w bazie")
 
     submit = st.form_submit_button("Dodaj")
 
     if submit and nazwa:
-        dodaj_produkt(nazwa, ilosc, kategoria)
+        dodaj_produkt(nazwa, ilosc)
         st.success("Produkt dodany")
         st.rerun()
 
@@ -83,7 +81,7 @@ produkty = pobierz_produkty()
 if produkty:
     df = pd.DataFrame(produkty)
 
-    kolumny = [c for c in ["nazwa", "ilosc", "kategoria"] if c in df.columns]
+    kolumny = [c for c in ["nazwa", "ilosc"] if c in df.columns]
     st.dataframe(df[kolumny], use_container_width=True)
 
     mapa = {
@@ -102,4 +100,4 @@ if produkty:
 else:
     st.info("Brak produktów w magazynie")
 
-st.caption("Supabase + Streamlit • kategorie tylko do wyboru")
+st.caption("Supabase + Streamlit • stabilna wersja bez zapisu kategorii")
