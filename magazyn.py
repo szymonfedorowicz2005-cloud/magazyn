@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 
-# -------------------------------------------------
+# --------------------------------------------------
 # KONFIGURACJA
-# -------------------------------------------------
+# --------------------------------------------------
 st.set_page_config(page_title="Magazyn", layout="wide")
 
 supabase = create_client(
@@ -12,27 +12,23 @@ supabase = create_client(
     st.secrets["SUPABASE_KEY"]
 )
 
-# -------------------------------------------------
-# FUNKCJE SUPABASE
-# -------------------------------------------------
+# --------------------------------------------------
+# FUNKCJE BAZY
+# --------------------------------------------------
 def get_kategorie():
     res = supabase.table("kategorie").select("*").order("nazwa").execute()
     return res.data or []
 
 def get_produkty():
-    res = supabase.table("produkty").select(
-        "id, nazwa, ilosc, kategoria_id, kategorie(nazwa)"
-    ).execute()
-    data = res.data or []
+    produkty = supabase.table("produkty").select("*").execute().data or []
+    kategorie = supabase.table("kategorie").select("id, nazwa").execute().data or []
 
-    # spłaszczenie kategorii
-    for r in data:
-        if isinstance(r.get("kategorie"), dict):
-            r["kategoria"] = r["kategorie"]["nazwa"]
-        else:
-            r["kategoria"] = ""
+    mapa_kategorii = {k["id"]: k["nazwa"] for k in kategorie}
 
-    return data
+    for p in produkty:
+        p["kategoria"] = mapa_kategorii.get(p.get("kategoria_id"), "")
+
+    return produkty
 
 def dodaj_kategorie(nazwa):
     supabase.table("kategorie").insert({"nazwa": nazwa}).execute()
@@ -50,38 +46,38 @@ def dodaj_produkt(nazwa, ilosc, kategoria_id):
 def usun_produkt(produkt_id):
     supabase.table("produkty").delete().eq("id", produkt_id).execute()
 
-# -------------------------------------------------
+# --------------------------------------------------
 # UI
-# -------------------------------------------------
+# --------------------------------------------------
 st.title("📦 Magazyn (Supabase + Streamlit)")
 st.markdown("---")
 
-# =================================================
+# ==================================================
 # KATEGORIE
-# =================================================
+# ==================================================
 st.header("📁 Kategorie")
 
 kategorie = get_kategorie()
 
-col_k1, col_k2 = st.columns(2)
+col1, col2 = st.columns(2)
 
-with col_k1:
+with col1:
     st.subheader("➕ Dodaj kategorię")
-    with st.form("dodaj_kategorie"):
-        nowa_kategoria = st.text_input("Nazwa kategorii")
+    with st.form("dodaj_kat"):
+        nazwa_kat = st.text_input("Nazwa kategorii")
         if st.form_submit_button("Dodaj"):
-            if nowa_kategoria:
-                dodaj_kategorie(nowa_kategoria)
+            if nazwa_kat:
+                dodaj_kategorie(nazwa_kat)
                 st.success("Kategoria dodana")
                 st.rerun()
 
-with col_k2:
+with col2:
     st.subheader("🗑 Usuń kategorię")
     if kategorie:
         mapa_kat = {k["nazwa"]: k["id"] for k in kategorie}
-        wybrana_kat = st.selectbox("Wybierz kategorię", mapa_kat.keys())
+        wybrana = st.selectbox("Wybierz kategorię", mapa_kat.keys())
         if st.button("Usuń kategorię"):
-            usun_kategorie(mapa_kat[wybrana_kat])
+            usun_kategorie(mapa_kat[wybrana])
             st.success("Kategoria usunięta")
             st.rerun()
     else:
@@ -89,59 +85,16 @@ with col_k2:
 
 st.markdown("---")
 
-# =================================================
+# ==================================================
 # PRODUKTY
-# =================================================
+# ==================================================
 st.header("📦 Produkty")
 
 produkty = get_produkty()
 
-col_p1, col_p2 = st.columns(2)
+col3, col4 = st.columns(2)
 
-with col_p1:
+with col3:
     st.subheader("➕ Dodaj produkt")
-    with st.form("dodaj_produkt"):
-        nazwa_p = st.text_input("Nazwa produktu")
-        ilosc_p = st.number_input("Ilość", min_value=1, step=1)
-
-        if kategorie:
-            mapa_kat = {k["nazwa"]: k["id"] for k in kategorie}
-            kat = st.selectbox("Kategoria", mapa_kat.keys())
-        else:
-            kat = None
-
-        if st.form_submit_button("Dodaj"):
-            if nazwa_p and kat:
-                dodaj_produkt(nazwa_p, ilosc_p, mapa_kat[kat])
-                st.success("Produkt dodany")
-                st.rerun()
-
-with col_p2:
-    st.subheader("🗑 Usuń produkt")
-    if produkty:
-        mapa_prod = {
-            f'{p["nazwa"]} ({p["kategoria"]})': p["id"]
-            for p in produkty
-        }
-        wybrany_p = st.selectbox("Wybierz produkt", mapa_prod.keys())
-        if st.button("Usuń produkt"):
-            usun_produkt(mapa_prod[wybrany_p])
-            st.success("Produkt usunięty")
-            st.rerun()
-    else:
-        st.info("Brak produktów")
-
-st.markdown("---")
-
-# =================================================
-# TABELA
-# =================================================
-st.header("📊 Stan magazynu")
-
-if produkty:
-    df = pd.DataFrame(produkty)[["nazwa", "ilosc", "kategoria"]]
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("Magazyn pusty")
-
-st.caption("Dane przechowywane w Supabase")
+    with st.form("dodaj_prod"):
+        nazwa_p = st.text_input("Nazwa
