@@ -19,14 +19,23 @@ supabase = create_client(
 # FUNKCJE BAZY
 # =============================
 def pobierz_produkty():
-    response = supabase.table("produkty").select("*").execute()
-    return response.data or []
+    res = supabase.table("produkty").select("*").execute()
+    return res.data or []
 
-def dodaj_produkt(nazwa, ilosc):
+def pobierz_kategorie():
+    """
+    Pobiera TYLKO istniejące kategorie z Supabase.
+    Brak dodawania / usuwania.
+    """
+    res = supabase.table("kategorie").select("nazwa").execute()
+    return [k["nazwa"] for k in res.data] if res.data else []
+
+def dodaj_produkt(nazwa, ilosc, kategoria):
     supabase.table("produkty").insert(
         {
             "nazwa": nazwa,
-            "ilosc": ilosc
+            "ilosc": ilosc,
+            "kategoria": kategoria
         }
     ).execute()
 
@@ -36,7 +45,7 @@ def usun_produkt(produkt_id):
 # =============================
 # UI
 # =============================
-st.title("📦 Magazyn – zarządzanie produktami")
+st.title("📦 Magazyn – produkty")
 st.markdown("---")
 
 # =============================
@@ -44,13 +53,21 @@ st.markdown("---")
 # =============================
 st.subheader("➕ Dodaj produkt")
 
+kategorie = pobierz_kategorie()
+
 with st.form("formularz_dodaj"):
     nazwa = st.text_input("Nazwa produktu")
     ilosc = st.number_input("Ilość", min_value=1, step=1)
+
+    if kategorie:
+        kategoria = st.selectbox("Kategoria", kategorie)
+    else:
+        kategoria = ""
+
     submit = st.form_submit_button("Dodaj")
 
     if submit and nazwa:
-        dodaj_produkt(nazwa, ilosc)
+        dodaj_produkt(nazwa, ilosc, kategoria)
         st.success("Produkt dodany")
         st.rerun()
 
@@ -66,8 +83,7 @@ produkty = pobierz_produkty()
 if produkty:
     df = pd.DataFrame(produkty)
 
-    # pokazujemy tylko bezpieczne kolumny
-    kolumny = [c for c in ["nazwa", "ilosc"] if c in df.columns]
+    kolumny = [c for c in ["nazwa", "ilosc", "kategoria"] if c in df.columns]
     st.dataframe(df[kolumny], use_container_width=True)
 
     mapa = {
@@ -86,4 +102,4 @@ if produkty:
 else:
     st.info("Brak produktów w magazynie")
 
-st.caption("Supabase + Streamlit • wersja stabilna (tylko produkty)")
+st.caption("Supabase + Streamlit • kategorie tylko do wyboru")
