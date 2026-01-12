@@ -19,60 +19,45 @@ def get_produkty():
     res = supabase.table("produkty").select("*").execute()
     return res.data or []
 
-def dodaj_produkt(nazwa, ilosc):
+def get_kategorie():
+    res = supabase.table("kategorie").select("*").execute()
+    return res.data or []
+
+def dodaj_produkt(nazwa, ilosc, kategoria):
     supabase.table("produkty").insert(
         {
             "nazwa": nazwa,
-            "ilosc": ilosc
+            "ilosc": ilosc,
+            "kategoria": kategoria
         }
     ).execute()
 
 def usun_produkt(produkt_id):
     supabase.table("produkty").delete().eq("id", produkt_id).execute()
 
+def dodaj_kategorie(nazwa):
+    supabase.table("kategorie").insert(
+        {
+            "nazwa": nazwa
+        }
+    ).execute()
+
+def usun_kategorie(kategoria_id):
+    supabase.table("kategorie").delete().eq("id", kategoria_id).execute()
+
 # =============================
 # UI
 # =============================
-st.title("📦 Magazyn – wersja stabilna")
+st.title("📦 Magazyn z kategoriami")
 st.markdown("---")
 
 # =============================
-# DODAWANIE
+# KATEGORIE
 # =============================
-st.subheader("➕ Dodaj produkt")
+st.header("📁 Kategorie")
 
-with st.form("dodaj"):
-    nazwa = st.text_input("Nazwa produktu")
-    ilosc = st.number_input("Ilość", min_value=1, step=1)
-    submit = st.form_submit_button("Dodaj")
+kategorie = get_kategorie()
 
-    if submit and nazwa:
-        dodaj_produkt(nazwa, ilosc)
-        st.success("Produkt dodany")
-        st.rerun()
+col_k1, col_k2 = st.columns(2)
 
-st.markdown("---")
-
-# =============================
-# LISTA + USUWANIE
-# =============================
-st.subheader("📋 Produkty")
-
-produkty = get_produkty()
-
-if produkty:
-    df = pd.DataFrame(produkty)
-    st.dataframe(df, use_container_width=True)
-
-    mapa = {p["nazwa"]: p["id"] for p in produkty if "id" in p}
-
-    wybrany = st.selectbox("Wybierz produkt do usunięcia", mapa.keys())
-
-    if st.button("🗑 Usuń produkt"):
-        usun_produkt(mapa[wybrany])
-        st.success("Produkt usunięty")
-        st.rerun()
-else:
-    st.info("Brak produktów w magazynie")
-
-st.caption("Supabase + Streamlit • wersja stabilna")
+wit
