@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 
-# ==================================================
+# =============================
 # KONFIGURACJA
-# ==================================================
+# =============================
 st.set_page_config(page_title="Magazyn", layout="wide")
 
 supabase = create_client(
@@ -12,34 +12,67 @@ supabase = create_client(
     st.secrets["SUPABASE_KEY"]
 )
 
-# ==================================================
+# =============================
 # FUNKCJE BAZY
-# ==================================================
-def get_kategorie():
-    return supabase.table("kategorie").select("*").execute().data or []
-
+# =============================
 def get_produkty():
-    produkty = supabase.table("produkty").select("*").execute().data or []
-
-    wynik = []
-    for p in produkty:
-        wynik.append({
-            "id": p.get("id"),
-            "nazwa": p.get("nazwa") or p.get("name") or "",
-            "ilosc": p.get("ilosc") or p.get("liczba") or p.get("quantity") or 0,
-            "kategoria": p.get("kategoria") or ""  # tylko display
-        })
-
-    return wynik
-
-def dodaj_kategorie(nazwa):
-    supabase.table("kategorie").insert({"nazwa": nazwa}).execute()
-
-def usun_kategorie(kategoria_id):
-    supabase.table("kategorie").delete().eq("id", kategoria_id).execute()
+    res = supabase.table("produkty").select("*").execute()
+    return res.data or []
 
 def dodaj_produkt(nazwa, ilosc):
-    supabase.table("produkty").insert({
-        "nazwa": nazwa,
-        "ilosc": ilosc
-    }
+    supabase.table("produkty").insert(
+        {
+            "nazwa": nazwa,
+            "ilosc": ilosc
+        }
+    ).execute()
+
+def usun_produkt(produkt_id):
+    supabase.table("produkty").delete().eq("id", produkt_id).execute()
+
+# =============================
+# UI
+# =============================
+st.title("📦 Magazyn – wersja stabilna")
+st.markdown("---")
+
+# =============================
+# DODAWANIE
+# =============================
+st.subheader("➕ Dodaj produkt")
+
+with st.form("dodaj"):
+    nazwa = st.text_input("Nazwa produktu")
+    ilosc = st.number_input("Ilość", min_value=1, step=1)
+    submit = st.form_submit_button("Dodaj")
+
+    if submit and nazwa:
+        dodaj_produkt(nazwa, ilosc)
+        st.success("Produkt dodany")
+        st.rerun()
+
+st.markdown("---")
+
+# =============================
+# LISTA + USUWANIE
+# =============================
+st.subheader("📋 Produkty")
+
+produkty = get_produkty()
+
+if produkty:
+    df = pd.DataFrame(produkty)
+    st.dataframe(df, use_container_width=True)
+
+    mapa = {p["nazwa"]: p["id"] for p in produkty if "id" in p}
+
+    wybrany = st.selectbox("Wybierz produkt do usunięcia", mapa.keys())
+
+    if st.button("🗑 Usuń produkt"):
+        usun_produkt(mapa[wybrany])
+        st.success("Produkt usunięty")
+        st.rerun()
+else:
+    st.info("Brak produktów w magazynie")
+
+st.caption("Supabase + Streamlit • wersja stabilna")
