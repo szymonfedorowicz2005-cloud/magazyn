@@ -35,8 +35,29 @@ def dodaj_produkt(nazwa, liczba, kategoria_id):
         }
     ).execute()
 
-def usun_produkt(produkt_id):
-    supabase.table("produkty").delete().eq("id", produkt_id).execute()
+def zmniejsz_ilosc_produktu(produkt_id, ile_usunac):
+    # pobierz aktualny stan
+    res = supabase.table("produkty") \
+        .select("liczba") \
+        .eq("id", produkt_id) \
+        .single() \
+        .execute()
+
+    aktualna_liczba = res.data["liczba"]
+    nowa_liczba = aktualna_liczba - ile_usunac
+
+    if nowa_liczba > 0:
+        # UPDATE
+        supabase.table("produkty") \
+            .update({"liczba": nowa_liczba}) \
+            .eq("id", produkt_id) \
+            .execute()
+    else:
+        # DELETE jeśli 0 lub mniej
+        supabase.table("produkty") \
+            .delete() \
+            .eq("id", produkt_id) \
+            .execute()
 
 # =============================
 # UI
@@ -79,7 +100,7 @@ with st.form("formularz_dodaj"):
 st.markdown("---")
 
 # =============================
-# LISTA + USUWANIE
+# LISTA + ZMNIEJSZANIE ILOŚCI
 # =============================
 st.subheader("📋 Lista produktów")
 
@@ -98,19 +119,33 @@ if produkty:
         use_container_width=True
     )
 
+    st.markdown("### ➖ Zmniejsz ilość produktu")
+
     mapa = {
-        f'{p["nazwa"]} (ID: {p["id"]})': p["id"]
+        f'{p["nazwa"]} (stan: {p["liczba"]})': p
         for p in produkty
     }
 
-    st.markdown("### 🗑 Usuń produkt")
     wybrany = st.selectbox("Wybierz produkt", mapa.keys())
+    ile_usunac = st.number_input(
+        "Ile sztuk usunąć",
+        min_value=1,
+        step=1
+    )
 
-    if st.button("Usuń produkt"):
-        usun_produkt(mapa[wybrany])
-        st.success("Produkt usunięty")
-        st.rerun()
+    if st.button("Zmniejsz stan"):
+        produkt = mapa[wybrany]
+
+        if ile_usunac > produkt["liczba"]:
+            st.error("Nie można usunąć więcej niż jest w magazynie")
+        else:
+            zmniejsz_ilosc_produktu(
+                produkt_id=produkt["id"],
+                ile_usunac=ile_usunac
+            )
+            st.success("Stan magazynu zaktualizowany")
+            st.rerun()
 else:
     st.info("Brak produktów w magazynie")
 
-st.caption("Supabase + Streamlit • wersja zgodna ze schematem bazy")
+st.caption("Supabase + Streamlit • magazyn z kontrolą ilości")
