@@ -23,16 +23,15 @@ def pobierz_produkty():
     return res.data or []
 
 def pobierz_kategorie():
-    # TYLKO ODCZYT – żadnego zapisu
-    res = supabase.table("kategorie").select("nazwa").execute()
-    return [k["nazwa"] for k in res.data] if res.data else []
+    res = supabase.table("kategorie").select("id, nazwa").execute()
+    return res.data or []
 
-def dodaj_produkt(nazwa, ilosc):
-    # INSERT tylko do kolumn, które NA 100% istnieją
+def dodaj_produkt(nazwa, liczba, kategoria_id):
     supabase.table("produkty").insert(
         {
             "nazwa": nazwa,
-            "ilosc": ilosc
+            "liczba": liczba,
+            "kategoria_id": kategoria_id
         }
     ).execute()
 
@@ -50,22 +49,30 @@ st.markdown("---")
 # =============================
 st.subheader("➕ Dodaj produkt")
 
-kategorie = pobierz_kategorie()  # tylko do wyświetlenia
+kategorie = pobierz_kategorie()
+mapa_kategorii = {k["nazwa"]: k["id"] for k in kategorie}
 
 with st.form("formularz_dodaj"):
     nazwa = st.text_input("Nazwa produktu")
-    ilosc = st.number_input("Ilość", min_value=1, step=1)
+    liczba = st.number_input("Liczba sztuk", min_value=1, step=1)
 
-    # kategoria TYLKO informacyjnie
     if kategorie:
-        st.selectbox("Kategoria (tylko informacyjnie)", kategorie)
+        wybrana_kategoria = st.selectbox(
+            "Kategoria",
+            list(mapa_kategorii.keys())
+        )
     else:
-        st.info("Brak kategorii w bazie")
+        st.error("Brak kategorii w bazie")
+        wybrana_kategoria = None
 
     submit = st.form_submit_button("Dodaj")
 
-    if submit and nazwa:
-        dodaj_produkt(nazwa, ilosc)
+    if submit and nazwa and wybrana_kategoria:
+        dodaj_produkt(
+            nazwa=nazwa,
+            liczba=liczba,
+            kategoria_id=mapa_kategorii[wybrana_kategoria]
+        )
         st.success("Produkt dodany")
         st.rerun()
 
@@ -81,13 +88,19 @@ produkty = pobierz_produkty()
 if produkty:
     df = pd.DataFrame(produkty)
 
-    kolumny = [c for c in ["nazwa", "ilosc"] if c in df.columns]
-    st.dataframe(df[kolumny], use_container_width=True)
+    # mapowanie kategorii ID → nazwa
+    if kategorie and "kategoria_id" in df.columns:
+        mapa_id_nazwa = {k["id"]: k["nazwa"] for k in kategorie}
+        df["kategoria"] = df["kategoria_id"].map(mapa_id_nazwa)
+
+    st.dataframe(
+        df[["nazwa", "liczba", "kategoria"]],
+        use_container_width=True
+    )
 
     mapa = {
-        f"{p.get('nazwa', 'brak nazwy')} (ID: {p.get('id')})": p["id"]
+        f'{p["nazwa"]} (ID: {p["id"]})': p["id"]
         for p in produkty
-        if "id" in p
     }
 
     st.markdown("### 🗑 Usuń produkt")
@@ -100,4 +113,4 @@ if produkty:
 else:
     st.info("Brak produktów w magazynie")
 
-st.caption("Supabase + Streamlit • stabilna wersja bez zapisu kategorii")
+st.caption("Supabase + Streamlit • wersja zgodna ze schematem bazy")
